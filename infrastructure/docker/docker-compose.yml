@@ -1,0 +1,60 @@
+services:
+  mysql:
+    image: mysql:8
+    restart: always
+    environment:
+      MYSQL_DATABASE: laos_sales
+      MYSQL_USER: laos
+      MYSQL_PASSWORD: laos_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  api:
+    build:
+      context: ../../
+      dockerfile: infrastructure/docker/Dockerfile.api
+    restart: always
+    environment:
+      - API_PORT=4000
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=laos
+      - DB_PASSWORD=laos_password
+      - DB_NAME=laos_sales
+      - JWT_SECRET=test_secret_change_me
+    depends_on:
+      - mysql
+
+  sync:
+    build:
+      context: ../../
+      dockerfile: infrastructure/docker/Dockerfile.sync
+    restart: always
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=laos
+      - DB_PASSWORD=laos_password
+      - DB_NAME=laos_sales
+      - SYNC_INTERVAL_MINUTES=5
+      - GOOGLE_SPREADSHEET_ID=your_spreadsheet_id
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/google-credentials.json
+    depends_on:
+      - mysql
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../../apps/web/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+
+volumes:
+  mysql_data:

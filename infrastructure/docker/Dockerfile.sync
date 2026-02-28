@@ -1,0 +1,18 @@
+FROM node:22-slim AS builder
+WORKDIR /app
+COPY package*.json ./
+COPY apps/sync-worker/package*.json ./apps/sync-worker/
+COPY packages/ ./packages/
+RUN npm install
+COPY . .
+RUN npm run build -w @laos/sync-worker
+
+FROM node:22-slim
+WORKDIR /app
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/apps/sync-worker/package*.json ./apps/sync-worker/
+COPY --from=builder /app/apps/sync-worker/dist ./apps/sync-worker/dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+
+CMD ["node", "apps/sync-worker/dist/worker.js"]

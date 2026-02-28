@@ -1,0 +1,20 @@
+{
+  "name": "laos-sales-panel",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "echo \"Use Docker for dev: docker compose up --build\"",
+    "dev:api": "npm run dev -w @laos/api",
+    "dev:web": "npm run dev -w @laos/web",
+    "install:all": "npm install",
+    "lint": "echo \"TODO\"",
+    "test": "echo \"TODO\""
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.18"
+  }
+}

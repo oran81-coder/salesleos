@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# IDEs and Tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+
+# Environment variables and secrets (CRITICAL)
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Database
+*.sqlite
+*.sqlite-journal
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Antigravity/AI specific
+.gemini/
+/tmp/

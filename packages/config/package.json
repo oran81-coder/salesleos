@@ -1,0 +1,6 @@
+{
+  "name": "@laos/config",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts"
+}

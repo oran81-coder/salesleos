@@ -1,0 +1,15 @@
+{
+  "name": "@laos/sync-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node dist/worker.js",
+    "build": "echo \"TODO: add ts build\""
+  },
+  "dependencies": {
+    "@laos/config": "*",
+    "@laos/shared-types": "*",
+    "googleapis": "^144.0.0",
+    "mysql2": "^3.11.0"
+  }
+}

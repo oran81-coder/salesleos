@@ -1,0 +1,10 @@
+{
+  "name": "@laos/bonus-engine",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "echo \"TODO: add ts build\"",
+    "test": "vitest run"
+  }
+}
