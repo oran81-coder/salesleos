@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node dist/worker.js",
-    "build": "echo \"TODO: add ts build\""
+    "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@laos/config": "*",

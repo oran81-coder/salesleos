@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-03-04T16:06:15.415Z",
+  "mapping": {
+    "deals": {
+      "repName": 3,
+      "dealAmount": 5,
+      "bonus": 8,
+      "dealId": 2,
+      "dealDate": 0,
+      "isRenewal": 10
+    },
+    "summary": {
+      "repName": 14,
+      "totalSalesAmount": 15,
+      "totalCollectionAmount": 16,
+      "offsetAmount": 17,
+      "numberOfDeals": 18,
+      "averageDealSize": 19,
+      "bonusBaseRaw": 20,
+      "targetAmount": 21
+    }
+  },
+  "rawJson": "{\"deals\":{\"repName\":3,\"dealAmount\":5,\"bonus\":8,\"dealId\":2,\"dealDate\":0,\"isRenewal\":10},\"summary\":{\"repName\":14,\"totalSalesAmount\":15,\"totalCollectionAmount\":16,\"offsetAmount\":17,\"numberOfDeals\":18,\"averageDealSize\":19,\"bonusBaseRaw\":20,\"targetAmount\":21}}"
+}

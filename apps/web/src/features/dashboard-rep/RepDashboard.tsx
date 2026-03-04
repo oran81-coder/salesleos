@@ -6,11 +6,22 @@ export function RepDashboard() {
   const [rankings, setRankings] = useState<any>(null);
   const [deals, setDeals] = useState<any[]>([]);
   const [month, setMonth] = useState('2024-03');
+  const [target, setTarget] = useState<number>(100000);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchRepData();
+    fetchMonthlyTarget();
   }, [month]);
+
+  const fetchMonthlyTarget = async () => {
+    try {
+      const res = await APIClient.get<{ target: number }>(`/kpis/monthly-target?month=${month}`);
+      setTarget(res.data.target);
+    } catch (err) {
+      console.error('Failed to fetch monthly target', err);
+    }
+  };
 
   const fetchRepData = async () => {
     setIsLoading(true);
@@ -90,16 +101,16 @@ export function RepDashboard() {
               <div className="benchmarks-container">
                 <div className="benchmark-item">
                   <div className="benchmark-info">
-                    <span className="label">סכום מכירות ממוצע</span>
+                    <span className="label">עמידה ביעד מכירות</span>
                     <span className="values">
                       <span className="current">₪{rankings.personal.sales.toLocaleString()}</span>
                       <span className="separator">/</span>
-                      <span className="avg">ממוצע: ₪{Math.round(rankings.averages.sales).toLocaleString()}</span>
+                      <span className="avg">יעד: ₪{target.toLocaleString()}</span>
                     </span>
                   </div>
                   <div className="progress-bar-wrapper">
                     <div className="progress-bar">
-                      <div className="progress-fill sales" style={{ width: `${Math.min((rankings.personal.sales / (rankings.averages.sales || 1)) * 100, 100)}%` }}></div>
+                      <div className="progress-fill sales" style={{ width: `${Math.min((rankings.personal.sales / (target || 1)) * 100, 100)}%` }}></div>
                     </div>
                   </div>
                 </div>
@@ -206,25 +217,34 @@ export function RepDashboard() {
               <thead>
                 <tr>
                   <th>תאריך</th>
+                  <th>שם עסק</th>
                   <th>מספר עסקה / מפתח</th>
                   <th>סכום עסקה</th>
                   <th>בונוס מבוקש (שיטס)</th>
-                  <th>אושר שולם</th>
-                  <th>סטטוס</th>
+                  <th>סטטוס גבייה</th>
                 </tr>
               </thead>
               <tbody>
                 {deals.length === 0 ? <tr><td colSpan={6} style={{ textAlign: 'center' }}>אין עסקאות לחודש זה</td></tr> : deals.map(d => (
                   <tr key={d.id}>
-                    <td>{d.deal_date || '-'}</td>
-                    <td><code>{d.deal_id || d.legacy_key}</code></td>
+                    <td>{d.deal_date ? new Date(d.deal_date).toLocaleDateString('he-IL') : '-'}</td>
+                    <td className="customer-name"><strong>{d.customer_name || 'לא צוין'}</strong></td>
+                    <td><code>{d.deal_id || d.legacy_key || '-'}</code></td>
                     <td className="amount">₪{Number(d.deal_amount).toLocaleString()}</td>
-                    <td className="amount">₪{Number(d.bonus_requested).toLocaleString()}</td>
-                    <td className="amount payout">₪{Number(d.total_approved).toLocaleString()}</td>
+                    <td className="amount payout">₪{Number(d.bonus_requested).toLocaleString()}</td>
                     <td>
-                      <span className={`badge ${d.remaining_eligible === 0 ? 'fully-paid' : d.total_approved > 0 ? 'partial' : 'pending'}`}>
-                        {d.remaining_eligible === 0 ? 'אושר במלואו' : d.total_approved > 0 ? 'חלקי' : 'ממתין'}
-                      </span>
+                      <div className="collection-status-cell">
+                        <span className={`badge ${d.is_completed ? 'fully-paid' : 'partial'}`}>
+                          {d.is_completed ? 'גבייה מלאה' : 'גבייה חלקית'}
+                        </span>
+                        <div className="status-label-mini">{d.status_label}</div>
+                        <div className="progress-bar-mini">
+                          <div
+                            className="progress-fill"
+                            style={{ width: `${Math.min((d.total_paid / (d.deal_amount || 1)) * 100, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))}

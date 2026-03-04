@@ -23,4 +23,3 @@ export async function fetchSheetValues(range: string): Promise<string[][]> {
   });
   return (res.data.values as string[][]) ?? [];
 }
-

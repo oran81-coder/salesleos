@@ -130,34 +130,42 @@ export class BonusService {
 
     /**
      * Fetches all deals for a representative in a given month, 
-     * including summary of approved bonuses for each deal.
+     * including cumulative collection status (paid/total) based on lifetime history.
      */
     static async getRepDeals(repId: number, monthLabel: string) {
         const sheetMonth = monthLabel.length === 7 ? `${monthLabel}-01` : monthLabel;
 
-        // Fetch deals
+        // 1. Fetch current month's deals
         const [deals] = await dbPool.query<mysql.RowDataPacket[]>(
             'SELECT * FROM deals WHERE rep_id = ? AND sheet_month = ? ORDER BY deal_date ASC',
             [repId, sheetMonth]
         );
 
-        // Fetch all approvals for these deals to calculate remaining eligibility
-        // In a real DB, we'd use a JOIN or a subquery. For simplicity and mock compatibility:
-        const [approvals] = await dbPool.query<mysql.RowDataPacket[]>(
-            'SELECT deal_db_id, SUM(approved_amount) as total_approved FROM bonus_approvals WHERE rep_id = ? AND status = "approved" GROUP BY deal_db_id',
-            [repId]
-        );
+        if (deals.length === 0) return [];
 
-        const approvalMap = new Map(approvals.map(a => [a.deal_db_id, Number(a.total_approved)]));
+        // 2. For each deal, calculate lifetime "paid" (sum of bonus_requested up to this month)
+        // Match by customer_name and rep_id. 
+        // Note: sheet_month is used to limit history to current month's context.
+        const enrichedDeals = await Promise.all(deals.map(async (d) => {
+            const [history] = await dbPool.query<mysql.RowDataPacket[]>(
+                `SELECT SUM(bonus_requested) as lifetime_paid 
+                 FROM deals 
+                 WHERE rep_id = ? AND customer_name = ? AND sheet_month <= ?`,
+                [repId, d.customer_name, sheetMonth]
+            );
 
-        return deals.map(d => {
-            const approved = approvalMap.get(d.id) || 0;
+            const totalPaid = Number(history[0].lifetime_paid || 0);
+            const totalDealValue = Number(d.deal_amount || 0);
+
             return {
                 ...d,
-                total_approved: approved,
-                remaining_eligible: Math.max(0, Number(d.bonus_requested) - approved)
+                total_paid: totalPaid,
+                is_completed: totalPaid >= totalDealValue,
+                status_label: `${totalPaid.toLocaleString()}/${totalDealValue.toLocaleString()}`
             };
-        });
+        }));
+
+        return enrichedDeals;
     }
 
     /**

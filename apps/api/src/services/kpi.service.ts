@@ -2,13 +2,20 @@ import { dbPool } from '../config/db.js';
 import mysql from 'mysql2/promise';
 import { calculateMonthlyBonus } from '@laos/bonus-engine';
 import { TierService } from './tier.service.js';
+import { parseHebrewMonthTab } from '../../../sync-worker/src/sync.service.js';
 
 export class KPIService {
     /**
      * Gets department leaderboard for a specific month
      */
     static async getLeaderboard(departmentId: number | null, monthLabel: string) {
-        const sheetMonth = monthLabel.length === 7 ? `${monthLabel}-01` : monthLabel;
+        let sheetMonth = monthLabel;
+        if (!sheetMonth.includes('-')) {
+            const parsed = parseHebrewMonthTab(monthLabel);
+            if (parsed) sheetMonth = parsed;
+        } else if (sheetMonth.length === 7) {
+            sheetMonth = `${sheetMonth}-01`;
+        }
 
         // Fetch tiers for the specific month
         const tiers = await TierService.getTiersForMonth(monthLabel);
@@ -28,7 +35,7 @@ export class KPIService {
       FROM rep_monthly_summary s
       JOIN users u ON s.rep_id = u.id
       JOIN departments d ON u.department_id = d.id
-      WHERE s.sheet_month = ? AND u.is_active = 1
+      WHERE s.sheet_month = ?
     `;
         const params: any[] = [sheetMonth];
 
@@ -40,6 +47,23 @@ export class KPIService {
         sql += ' ORDER BY s.total_sales_amount DESC';
 
         const [rows] = await dbPool.query<mysql.RowDataPacket[]>(sql, params);
+
+        // Fetch deal stats
+        const [dealStats] = await dbPool.query<mysql.RowDataPacket[]>(`
+            SELECT 
+                rep_id,
+                COUNT(*) as actualDealsCount
+            FROM deals
+            WHERE sheet_month = ? 
+              AND MONTH(deal_date) = MONTH(?) 
+              AND YEAR(deal_date) = YEAR(?)
+            GROUP BY rep_id
+        `, [sheetMonth, sheetMonth, sheetMonth]);
+
+        const dealStatsMap = new Map(dealStats.map(s => [Number(s.rep_id), s.actualDealsCount]));
+
+        // Fetch global monthly target
+        const globalTarget = await this.getMonthlyTarget(monthLabel);
 
         // Calculate bonuses using the engine
         return rows.map((row, index) => {
@@ -56,35 +80,89 @@ export class KPIService {
                 console.error('Bonus calculation resulted in NaN', { raw, offset, tiersCount: tiers.length });
             }
 
+            const target = Number(row.Target) || globalTarget || 0;
+            const deals = Number(row.DealsCount || 0);
+            const sales = Number(row.TotalSales || 0);
+            const avgDeal = deals > 0 ? sales / deals : 0;
+
             return {
                 ...row,
+                DealsCount: deals,
+                Target: target,
+                AvgDealSize: avgDeal,
                 BonusBaseNet: result.bonusBaseNet,
                 FinalBonusPayout: result.payout,
-                TargetAchievement: row.Target ? (Number(row.TotalSales) / Number(row.Target)) * 100 : 0,
+                TargetAchievement: target ? (sales / target) * 100 : 0,
                 rank: index + 1
             };
         });
     }
 
     /**
+     * Gets the global monthly target for a specific month.
+     * Defaults to 100,000 if not set.
+     */
+    static async getMonthlyTarget(monthLabel: string): Promise<number> {
+        let sheetMonth = monthLabel;
+        if (!sheetMonth.includes('-')) {
+            const parsed = parseHebrewMonthTab(monthLabel);
+            if (parsed) sheetMonth = parsed;
+        } else if (sheetMonth.length === 7) {
+            sheetMonth = `${sheetMonth}-01`;
+        }
+        const key = `target_${sheetMonth}`;
+
+        const [rows] = await dbPool.query<mysql.RowDataPacket[]>(
+            'SELECT setting_value FROM system_settings WHERE setting_key = ?',
+            [key]
+        );
+
+        if (rows.length === 0) return 100000;
+        return Number(rows[0].setting_value);
+    }
+
+    /**
+     * Sets the global monthly target for a specific month.
+     */
+    static async setMonthlyTarget(monthLabel: string, target: number) {
+        let sheetMonth = monthLabel;
+        if (!sheetMonth.includes('-')) {
+            const parsed = parseHebrewMonthTab(monthLabel);
+            if (parsed) sheetMonth = parsed;
+        } else if (sheetMonth.length === 7) {
+            sheetMonth = `${sheetMonth}-01`;
+        }
+        const key = `target_${sheetMonth}`;
+
+        await dbPool.query(
+            'INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)',
+            [key, String(target)]
+        );
+    }
+
+    /**
      * Gets percentile rankings and department averages for a specific representative
      */
     static async getRepRankings(repId: number, monthLabel: string) {
-        const sheetMonth = monthLabel.length === 7 ? `${monthLabel}-01` : monthLabel;
+        let sheetMonth = monthLabel;
+        if (!sheetMonth.includes('-')) {
+            const parsed = parseHebrewMonthTab(monthLabel);
+            if (parsed) sheetMonth = parsed;
+        } else if (sheetMonth.length === 7) {
+            sheetMonth = `${sheetMonth}-01`;
+        }
 
-        // 1. Get the target rep's department
         const [repRows] = await dbPool.query<mysql.RowDataPacket[]>(
             'SELECT department_id FROM users WHERE id = ?',
             [repId]
         );
         const departmentId = repRows[0]?.department_id;
 
-        // 2. Fetch all active reps in the same department for this month
         const [allReps] = await dbPool.query<mysql.RowDataPacket[]>(
             `SELECT s.rep_id, s.total_sales_amount, s.total_collection_amount, s.number_of_deals, (s.bonus_base_raw - s.offset_amount) as net_bonus
              FROM rep_monthly_summary s
              JOIN users u ON s.rep_id = u.id
-             WHERE s.sheet_month = ? AND u.department_id = ? AND u.is_active = 1`,
+             WHERE s.sheet_month = ? AND u.department_id = ?`,
             [sheetMonth, departmentId]
         );
 
@@ -103,7 +181,6 @@ export class KPIService {
             return sum / allReps.length;
         };
 
-        // 3. Fetch "New vs Renewals" for the rep
         const [repDeals] = await dbPool.query<mysql.RowDataPacket[]>(
             'SELECT is_renewal FROM deals WHERE sheet_month = ? AND rep_id = ?',
             [sheetMonth, repId]
@@ -136,69 +213,70 @@ export class KPIService {
      * Gets aggregated summary for a department
      */
     static async getDepartmentSummary(departmentId: any, monthLabel: string) {
-        const sheetMonth = monthLabel.includes('-') && monthLabel.length === 7 ? `${monthLabel}-01` : monthLabel;
+        let sheetMonth = monthLabel;
+        if (!sheetMonth.includes('-')) {
+            const parsed = parseHebrewMonthTab(monthLabel);
+            if (parsed) sheetMonth = parsed;
+        } else if (sheetMonth.length === 7) {
+            sheetMonth = `${sheetMonth}-01`;
+        }
 
-        console.log(`[KPIService] getDepartmentSummary - month: ${sheetMonth}, rawDeptId: ${departmentId}, type: ${typeof departmentId}`);
-
-        // 1. Aggregate totals from rep_monthly_summary
         let summarySql = `
             SELECT 
                 SUM(total_sales_amount) as totalSales,
-                SUM(total_collection_amount) as totalCollection,
+                SUM(total_collection_amount - offset_amount) as totalCollection,
+                SUM(offset_amount) as totalOffset,
                 SUM(number_of_deals) as totalDeals
             FROM rep_monthly_summary s
             JOIN users u ON s.rep_id = u.id
-            WHERE s.sheet_month = ? AND u.is_active = 1
+            WHERE s.sheet_month = ?
         `;
         const summaryParams: any[] = [sheetMonth];
 
-        // Robust check for null/undefined/empty/string "null"
         const effectiveDeptId = (departmentId === null || departmentId === undefined || departmentId === '' || departmentId === 'null' || departmentId === 'undefined')
             ? null
             : Number(departmentId);
 
         if (effectiveDeptId !== null && !isNaN(effectiveDeptId)) {
-            console.log(`[KPIService] Applying department filter: ${effectiveDeptId}`);
             summarySql += ' AND u.department_id = ?';
             summaryParams.push(effectiveDeptId);
-        } else {
-            console.log(`[KPIService] No department filter applied`);
         }
 
-        console.log(`[KPIService] Summary query params:`, summaryParams);
         const [summaryRows] = await dbPool.query<mysql.RowDataPacket[]>(summarySql, summaryParams);
-        console.log(`[KPIService] Summary results:`, summaryRows);
         const totals = summaryRows[0] || { totalSales: 0, totalCollection: 0, totalDeals: 0 };
 
-        // 2. Aggregate New vs Renewals from deals table
         let dealsSql = `
             SELECT is_renewal, COUNT(*) as count
             FROM deals d
             JOIN users u ON d.rep_id = u.id
-            WHERE d.sheet_month = ? AND u.is_active = 1
+            WHERE d.sheet_month = ? 
+              AND MONTH(d.deal_date) = MONTH(?) 
+              AND YEAR(d.deal_date) = YEAR(?)
         `;
-        const dealsParams: any[] = [sheetMonth];
+        const dealsParams: any[] = [sheetMonth, sheetMonth, sheetMonth];
         if (effectiveDeptId !== null && !isNaN(effectiveDeptId)) {
             dealsSql += ' AND u.department_id = ?';
             dealsParams.push(effectiveDeptId);
         }
         dealsSql += ' GROUP BY is_renewal';
 
-        console.log(`[KPIService] Deals split query params:`, dealsParams);
         const [dealRows] = await dbPool.query<mysql.RowDataPacket[]>(dealsSql, dealsParams);
-        console.log(`[KPIService] Deals split results:`, dealRows);
 
         let newDeals = 0;
         let renewals = 0;
+        let totalFilteredDeals = 0;
         dealRows.forEach(row => {
-            if (row.is_renewal) renewals += Number(row.count);
-            else newDeals += Number(row.count);
+            const count = Number(row.count);
+            if (row.is_renewal) renewals += count;
+            else newDeals += count;
+            totalFilteredDeals += count;
         });
 
         return {
             totalSales: Number(totals.totalSales || 0),
             totalCollection: Number(totals.totalCollection || 0),
-            totalDeals: Number(totals.totalDeals || 0),
+            totalOffset: Number(totals.totalOffset || 0),
+            totalDeals: totalFilteredDeals,
             newDeals,
             renewals
         };

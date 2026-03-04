@@ -3,6 +3,7 @@ export let mockUsers = [
     { id: 2, full_name: 'נציג ב׳', sheet_name: 'נציג ב׳', email: 'repB@laos.co.il', role: 'rep', department_id: 1, is_active: 1 },
     { id: 3, full_name: 'נציג ג׳', sheet_name: 'נציג ג׳', email: 'repC@laos.co.il', role: 'rep', department_id: 1, is_active: 1 },
     { id: 4, full_name: 'מנהל המערכת', sheet_name: 'מנהל', email: 'manager@laos.co.il', role: 'manager', department_id: 1, is_active: 1 },
+    { id: 5, full_name: 'קרן בן שימול', sheet_name: 'קרן בן שימול', email: 'keren@laos.co.il', role: 'rep', department_id: 1, is_active: 1 },
 ];
 
 export let mockDepartments = [

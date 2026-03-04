@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS deals (
   deal_date DATE NULL,
   deal_amount DECIMAL(14,2) NOT NULL,
   bonus_requested DECIMAL(14,2) NULL,
+  is_renewal TINYINT(1) NOT NULL DEFAULT 0,
   sheet_tab_name VARCHAR(255) NULL,
   sheet_row_number INT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -92,7 +93,9 @@ CREATE TABLE IF NOT EXISTS rep_monthly_summary (
   department_id BIGINT UNSIGNED NOT NULL,
   sheet_month DATE NOT NULL,
   total_sales_amount DECIMAL(14,2) NOT NULL,
+  total_collection_amount DECIMAL(14,2) NULL DEFAULT 0,
   number_of_deals INT NOT NULL,
+  target_amount DECIMAL(14,2) NULL DEFAULT 0,
   average_deal_size DECIMAL(14,2) NULL,
   bonus_base_raw DECIMAL(14,2) NOT NULL,
   offset_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
@@ -210,3 +213,12 @@ CREATE TABLE IF NOT EXISTS sync_runs (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS system_settings (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  setting_key VARCHAR(128) NOT NULL,
+  setting_value TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_system_settings_key (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

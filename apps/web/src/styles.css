@@ -426,6 +426,45 @@ th {
   font-weight: 500;
   padding: 1rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease, background 0.2s ease;
+  white-space: nowrap;
+}
+
+th:hover {
+  color: #f3f4f6;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+th.sortable-header {
+  position: relative;
+  padding-inline-end: 1.8rem;
+}
+
+th.sortable-header::after {
+  content: '↕';
+  position: absolute;
+  inset-inline-end: 0.6rem;
+  opacity: 0.2;
+  font-size: 0.8rem;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+th.sortable-header:hover::after {
+  opacity: 0.5;
+}
+
+th.sort-asc::after {
+  content: '↑';
+  opacity: 1 !important;
+  color: #6366f1;
+}
+
+th.sort-desc::after {
+  content: '↓';
+  opacity: 1 !important;
+  color: #ec4899;
 }
 
 td {
@@ -880,6 +919,10 @@ select {
 
 .dept-stat-item .value.collection {
   color: #10b981;
+}
+
+.dept-stat-item .value.offset {
+  color: #ff4444;
 }
 
 .new-vs-renewal-mini {

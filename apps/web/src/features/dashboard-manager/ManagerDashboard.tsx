@@ -3,29 +3,66 @@ import { APIClient } from '../../api/client';
 import { TierManager } from './TierManager';
 import { UserManager } from './UserManager';
 import { SettingsManager } from './SettingsManager';
-import { BonusApprovalModal } from './BonusApprovalModal';
+// import { BonusApprovalModal } from './BonusApprovalModal'; // Remove manual approval modal
 
 export function ManagerDashboard() {
   const [view, setView] = useState<'leaderboard' | 'tiers' | 'users' | 'settings'>('leaderboard');
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [departmentSummary, setDepartmentSummary] = useState<any>(null);
   const [errors, setErrors] = useState<any[]>([]);
-  const [month, setMonth] = useState('2024-03'); // Example default
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Drill-down state
   const [selectedRep, setSelectedRep] = useState<any>(null);
   const [repDeals, setRepDeals] = useState<any[]>([]);
   const [isDealsLoading, setIsDealsLoading] = useState(false);
 
+  const [target, setTarget] = useState<number>(100000);
+  const [isEditingTarget, setIsEditingTarget] = useState(false);
+  const [newTarget, setNewTarget] = useState<string>('100000');
+
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({
+    key: 'TotalSales',
+    direction: 'desc'
+  });
+
   // Modal state
-  const [approvalDeal, setApprovalDeal] = useState<any>(null);
+  // const [approvalDeal, setApprovalDeal] = useState<any>(null); // Removed
 
   useEffect(() => {
     if (view === 'leaderboard') {
       fetchData();
+      fetchMonthlyTarget();
     }
   }, [view, month]);
+
+  const fetchMonthlyTarget = async () => {
+    try {
+      const res = await APIClient.get<{ target: number }>(`/kpis/monthly-target?month=${month}`);
+      setTarget(res.data.target);
+      setNewTarget(String(res.data.target));
+    } catch (err) {
+      console.error('Failed to fetch monthly target', err);
+    }
+  };
+
+  const handleSaveTarget = async () => {
+    try {
+      const targetNum = Number(newTarget);
+      if (isNaN(targetNum)) return;
+      await APIClient.post('/kpis/monthly-target', { month, target: targetNum });
+      setTarget(targetNum);
+      setIsEditingTarget(false);
+      // Refresh leaderboard to show new target achievements
+      fetchData();
+    } catch (err) {
+      console.error('Failed to save monthly target', err);
+      alert('שגיאה בעדכון היעד');
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -61,11 +98,36 @@ export function ManagerDashboard() {
   const handleSync = async () => {
     try {
       await APIClient.post('/sync/trigger', { month });
-      alert('סנכרון הופעל בהצלחה');
+      alert(`סנכרון עבור ${month} הופעל בהצלחה`);
+      fetchData();
     } catch (err: any) {
       alert('סנכרון נכשל: ' + err.message);
     }
   };
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'desc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = 'asc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
+    if (!sortConfig) return 0;
+    const { key, direction } = sortConfig;
+
+    let aVal = a[key];
+    let bVal = b[key];
+
+    // Handle numeric values
+    if (typeof aVal === 'string' && !isNaN(parseFloat(aVal))) aVal = parseFloat(aVal);
+    if (typeof bVal === 'string' && !isNaN(parseFloat(bVal))) bVal = parseFloat(bVal);
+
+    if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="dashboard">
@@ -79,7 +141,7 @@ export function ManagerDashboard() {
         </div>
         {view === 'leaderboard' && !selectedRep && (
           <div className="header-actions">
-            <input type="month" value={month} onChange={e => setMonth(e.target.value)} />
+            <input type="month" value={month.slice(0, 7)} onChange={e => setMonth(e.target.value + '-01')} />
             <button className="button secondary" onClick={handleSync}>סנכרן עכשיו</button>
           </div>
         )}
@@ -107,6 +169,10 @@ export function ManagerDashboard() {
                         <div className="dept-stat-item">
                           <label>סכום גבייה מעודכן</label>
                           <div className="value collection">₪{departmentSummary.totalCollection.toLocaleString()}</div>
+                        </div>
+                        <div className="dept-stat-item">
+                          <label>סך קיזוזים</label>
+                          <div className="value offset">₪{departmentSummary.totalOffset.toLocaleString()}</div>
                         </div>
                         <div className="dept-stat-item">
                           <label>סכום מכירות</label>
@@ -140,25 +206,52 @@ export function ManagerDashboard() {
                   </section>
                 </div>
 
+                <div className="target-management-bar card" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>יעד מחלקתי ({month}):</span>
+                    {isEditingTarget ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input
+                          type="number"
+                          value={newTarget}
+                          onChange={(e) => setNewTarget(e.target.value)}
+                          className="input-field"
+                          style={{ width: '120px', padding: '0.4rem', border: '1px solid #444', background: '#1a1a1a', color: '#fff', borderRadius: '4px' }}
+                        />
+                        <button onClick={handleSaveTarget} className="button primary small" style={{ padding: '0.4rem 1rem' }}>שמור</button>
+                        <button onClick={() => { setIsEditingTarget(false); setNewTarget(String(target)); }} className="button secondary small" style={{ padding: '0.4rem 1rem' }}>ביטול</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                        <span style={{ fontSize: '1.2rem', color: '#00d4ff', fontWeight: 700 }}>₪{target.toLocaleString()}</span>
+                        <button onClick={() => setIsEditingTarget(true)} className="button secondary small" style={{ padding: '0.2rem 0.8rem', fontSize: '0.85rem' }}>ערוך יעד</button>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ opacity: 0.7, fontSize: '0.9rem' }}>
+                    * היעד משפיע על חישוב אחוזי העמידה ביעד של כל הנציגים
+                  </div>
+                </div>
+
                 <section className="card kpi-card">
                   <h2>לוח נציגים ({month})</h2>
                   {isLoading ? <p>טוען...</p> : (
                     <table>
                       <thead>
                         <tr>
-                          <th>דירוג</th>
-                          <th>נציג</th>
-                          <th>עסקאות</th>
-                          <th>מכירות (ברוטו)</th>
-                          <th>גבייה בפועל</th>
-                          <th>קיזוזים</th>
-                          <th>עמידה ביעד</th>
-                          <th>ממוצע לעסקה</th>
-                          <th>בונוס (נטו)</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'rank' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('rank')}>דירוג</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'repName' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('repName')}>נציג</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'DealsCount' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('DealsCount')}>עסקאות</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'TotalSales' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('TotalSales')}>מכירות (ברוטו)</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'ActualCollection' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('ActualCollection')}>גבייה בפועל</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'Offset' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('Offset')}>קיזוזים</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'TargetAchievement' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('TargetAchievement')}>עמידה ביעד</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'AvgDealSize' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('AvgDealSize')}>ממוצע לעסקה</th>
+                          <th className={`sortable-header ${sortConfig?.key === 'FinalBonusPayout' ? `sort-${sortConfig.direction}` : ''}`} onClick={() => requestSort('FinalBonusPayout')}>בונוס (נטו)</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {leaderboard.map(r => (
+                        {sortedLeaderboard.map(r => (
                           <tr key={r.repId} className="hoverable" onClick={() => fetchRepDeals(r)} style={{ cursor: 'pointer' }}>
                             <td>
                               <span className={`rank-badge rank-${r.rank}`}>
@@ -200,6 +293,10 @@ export function ManagerDashboard() {
                       <strong>₪{Number(selectedRep.TotalSales).toLocaleString()}</strong>
                     </div>
                     <div className="stat">
+                      <label style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7 }}>סך גבייה</label>
+                      <strong className="collection">₪{Number(selectedRep.ActualCollection).toLocaleString()}</strong>
+                    </div>
+                    <div className="stat">
                       <label style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7 }}>בונוס מחושב</label>
                       <strong className="payout">₪{Number(selectedRep.FinalBonusPayout).toLocaleString()}</strong>
                     </div>
@@ -212,37 +309,34 @@ export function ManagerDashboard() {
                       <thead>
                         <tr>
                           <th>תאריך</th>
+                          <th>שם עסק</th>
                           <th>מספר עסקה / מפתח</th>
                           <th>סכום עסקה</th>
                           <th>בונוס מבוקש (שיטס)</th>
-                          <th>אושר עד כה</th>
-                          <th>נותר לאישור</th>
-                          <th>סטטוס</th>
-                          <th>פעולות</th>
+                          <th>סטטוס גבייה</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {repDeals.length === 0 ? <tr><td colSpan={8} style={{ textAlign: 'center' }}>אין עסקאות לחודש זה</td></tr> : repDeals.map(d => (
+                        {repDeals.length === 0 ? <tr><td colSpan={6} style={{ textAlign: 'center' }}>אין עסקאות לחודש זה</td></tr> : repDeals.map(d => (
                           <tr key={d.id}>
-                            <td>{d.deal_date || '-'}</td>
-                            <td><code>{d.deal_id || d.legacy_key}</code></td>
+                            <td>{d.deal_date ? new Date(d.deal_date).toLocaleDateString('he-IL') : '-'}</td>
+                            <td className="customer-name"><strong>{d.customer_name || 'לא צוין'}</strong></td>
+                            <td><code>{d.deal_id || d.legacy_key || '-'}</code></td>
                             <td className="amount">₪{Number(d.deal_amount).toLocaleString()}</td>
-                            <td className="amount">₪{Number(d.bonus_requested).toLocaleString()}</td>
-                            <td className="amount">₪{Number(d.total_approved).toLocaleString()}</td>
-                            <td className="amount highlight">₪{Number(d.remaining_eligible).toLocaleString()}</td>
+                            <td className="amount payout">₪{Number(d.bonus_requested).toLocaleString()}</td>
                             <td>
-                              <span className={`badge ${d.remaining_eligible === 0 ? 'fully-paid' : d.total_approved > 0 ? 'partial' : 'pending'}`}>
-                                {d.remaining_eligible === 0 ? 'אושר במלואו' : d.total_approved > 0 ? 'חלקי' : 'ממתין'}
-                              </span>
-                            </td>
-                            <td>
-                              <button
-                                className="button primary small"
-                                disabled={d.remaining_eligible === 0}
-                                onClick={() => setApprovalDeal(d)}
-                              >
-                                אישור
-                              </button>
+                              <div className="collection-status-cell">
+                                <span className={`badge ${d.is_completed ? 'fully-paid' : 'partial'}`}>
+                                  {d.is_completed ? 'גבייה מלאה' : 'גבייה חלקית'}
+                                </span>
+                                <div className="status-label-mini">{d.status_label}</div>
+                                <div className="progress-bar-mini">
+                                  <div
+                                    className="progress-fill"
+                                    style={{ width: `${Math.min((d.total_paid / (d.deal_amount || 1)) * 100, 100)}%` }}
+                                  ></div>
+                                </div>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -262,7 +356,7 @@ export function ManagerDashboard() {
         )}
       </div>
 
-      {approvalDeal && (
+      {/* {approvalDeal && (
         <BonusApprovalModal
           deal={approvalDeal}
           month={month}
@@ -273,7 +367,7 @@ export function ManagerDashboard() {
             fetchData(); // Refresh summary values on leaderboard too
           }}
         />
-      )}
-    </div>
+      )} */}
+    </div >
   );
 }

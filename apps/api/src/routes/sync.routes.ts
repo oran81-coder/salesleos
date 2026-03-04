@@ -52,6 +52,38 @@ router.post('/settings', authenticateJwt, authorizeRole(['manager']), async (req
     }
 });
 
+router.get('/tabs', authenticateJwt, authorizeRole(['manager']), async (req, res, next) => {
+    try {
+        const data = await SyncService.getSheetTabs();
+        res.json({ success: true, data });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.get('/debug-run-sync', async (req, res, next) => {
+    try {
+        const { month } = req.query;
+        if (!month) return res.status(400).json({ success: false, message: 'Month required' });
+        const result = await SyncService.triggerSync(String(month));
+        res.json({ success: true, result });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.get('/debug-sheet', async (req, res, next) => {
+    try {
+        const { month } = req.query;
+        if (!month) return res.status(400).json({ success: false, message: 'Month required' });
+        const { KPIService } = await import('../services/kpi.service.js');
+        const leaderboard = await KPIService.getLeaderboard(null, String(month));
+        res.json({ success: true, leaderboard });
+    } catch (err) {
+        next(err);
+    }
+});
+
 router.get('/headers', authenticateJwt, authorizeRole(['manager']), async (req, res, next) => {
     try {
         const { month } = req.query;
