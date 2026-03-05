@@ -105,6 +105,26 @@ export function ManagerDashboard() {
     }
   };
 
+  const handleGenerateReport = async () => {
+    try {
+      setIsLoading(true);
+      const blob = await APIClient.getBlob(`/kpis/accounting-report?month=${month}`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `accounting_report_${month}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      console.error('Failed to generate report', err);
+      alert('הפקת דוח נכשלה: ' + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'desc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
@@ -142,6 +162,7 @@ export function ManagerDashboard() {
         {view === 'leaderboard' && !selectedRep && (
           <div className="header-actions">
             <input type="month" value={month.slice(0, 7)} onChange={e => setMonth(e.target.value + '-01')} />
+            <button className="button primary" onClick={handleGenerateReport} disabled={isLoading}>הפק דוח חודשי</button>
             <button className="button secondary" onClick={handleSync}>סנכרן עכשיו</button>
           </div>
         )}

@@ -46,4 +46,23 @@ export class APIClient {
             body: JSON.stringify(body),
         });
     }
+
+    static async getBlob(path: string): Promise<Blob> {
+        const headers = new Headers();
+        if (this.token) {
+            headers.set('Authorization', `Bearer ${this.token}`);
+        }
+
+        const response = await fetch(`${this.baseURL}${path}`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.message || 'API request failed');
+        }
+
+        return response.blob();
+    }
 }

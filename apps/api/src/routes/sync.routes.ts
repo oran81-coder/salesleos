@@ -8,11 +8,18 @@ const router = Router();
 router.post('/trigger', authenticateJwt, authorizeRole(['manager']), async (req, res, next) => {
     try {
         const { month } = req.body;
-        if (!month) return res.status(400).json({ success: false, message: 'Month required' });
+        console.log(`[SyncRoutes] Triggering sync for month: ${month}`);
+        if (!month) {
+            console.error('[SyncRoutes] Sync failed: Month required');
+            return res.status(400).json({ success: false, message: 'Month required' });
+        }
         const result = await SyncService.triggerSync(month);
+        console.log('[SyncRoutes] Sync completed successfully:', result);
         res.json({ success: true, ...result });
-    } catch (err) {
-        next(err);
+    } catch (err: any) {
+        console.error('[SyncRoutes] Sync trigger error:', err);
+        // Ensure we send a JSON response even on crash
+        res.status(500).json({ success: false, message: `סנכרון נכשל: ${err.message || 'שגיאת שרת פנימית'}` });
     }
 });
 

@@ -281,4 +281,52 @@ export class KPIService {
             renewals
         };
     }
+
+    /**
+     * Gets all data required for the accounting PDF report
+     */
+    static async getAccountingReportData(departmentId: number | null, monthLabel: string) {
+        let sheetMonth = monthLabel;
+        if (!sheetMonth.includes('-')) {
+            const parsed = parseHebrewMonthTab(monthLabel);
+            if (parsed) sheetMonth = parsed;
+        } else if (sheetMonth.length === 7) {
+            sheetMonth = `${sheetMonth}-01`;
+        }
+
+        const [summary, leaderboard, allDeals] = await Promise.all([
+            this.getDepartmentSummary(departmentId, monthLabel),
+            this.getLeaderboard(departmentId, monthLabel),
+            dbPool.query<mysql.RowDataPacket[]>(`
+                SELECT 
+                    d.deal_date,
+                    d.customer_name,
+                    d.deal_amount,
+                    d.bonus_requested,
+                    d.is_renewal,
+                    d.deal_id,
+                    u.full_name as repName,
+                    (
+                        SELECT SUM(d2.bonus_requested)
+                        FROM deals d2
+                        WHERE d2.deal_id = d.deal_id 
+                          AND d.deal_id IS NOT NULL 
+                          AND d.deal_id != ''
+                          AND d2.sheet_month <= d.sheet_month
+                    ) as cumulativeCollection
+                FROM deals d
+                JOIN users u ON d.rep_id = u.id
+                WHERE d.sheet_month = ?
+                ${departmentId ? 'AND u.department_id = ?' : ''}
+                ORDER BY d.deal_date ASC
+            `, departmentId ? [sheetMonth, departmentId] : [sheetMonth])
+        ]);
+
+        return {
+            summary,
+            leaderboard,
+            deals: allDeals[0],
+            monthLabel
+        };
+    }
 }
