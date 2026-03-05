@@ -9,7 +9,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="logo">Laos Media</div>
+        <div className="logo">Leos Media</div>
         <nav className="nav">
           <NavLink to="/" className="nav-item">
             דשבורד מנהל
