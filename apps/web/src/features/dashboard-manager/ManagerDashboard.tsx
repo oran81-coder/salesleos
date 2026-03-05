@@ -64,6 +64,18 @@ export function ManagerDashboard() {
     }
   };
 
+  const handlePrevMonth = () => {
+    const [year, m] = month.split('-').map(Number);
+    const date = new Date(year, m - 2, 1);
+    setMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`);
+  };
+
+  const handleNextMonth = () => {
+    const [year, m] = month.split('-').map(Number);
+    const date = new Date(year, m, 1);
+    setMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`);
+  };
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -161,7 +173,16 @@ export function ManagerDashboard() {
         </div>
         {view === 'leaderboard' && !selectedRep && (
           <div className="header-actions">
-            <input type="month" value={month.slice(0, 7)} onChange={e => setMonth(e.target.value + '-01')} />
+            <div className="month-selector" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <button className="button secondary small" onClick={handlePrevMonth} style={{ padding: '4px 10px', minWidth: 'auto' }} title="חודש קודם">&lt;</button>
+              <input
+                type="month"
+                value={month.slice(0, 7)}
+                onChange={e => setMonth(e.target.value + '-01')}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', padding: '0 4px' }}
+              />
+              <button className="button secondary small" onClick={handleNextMonth} style={{ padding: '4px 10px', minWidth: 'auto' }} title="חודש הבא">&gt;</button>
+            </div>
             <button className="button primary" onClick={handleGenerateReport} disabled={isLoading}>הפק דוח חודשי</button>
             <button className="button secondary" onClick={handleSync}>סנכרן עכשיו</button>
           </div>
