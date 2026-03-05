@@ -228,9 +228,8 @@ function generateAccountingReportHtml(data: any) {
                     <th>תאריך</th>
                     <th>שם עסק</th>
                     <th>נציג</th>
-                    <th>גבייה עד כה</th>
                     <th>סכום עסקה</th>
-                    <th>סטטוס</th>
+                    <th>גבייה עד כה</th>
                     <th>בונוס (שיטס)</th>
                 </tr>
             </thead>
@@ -240,9 +239,8 @@ function generateAccountingReportHtml(data: any) {
                         <td>${d.deal_date ? new Date(d.deal_date).toLocaleDateString('he-IL') : '-'}</td>
                         <td>${d.customer_name || '-'}</td>
                         <td>${d.repName}</td>
-                        <td class="amount">₪${Number(d.cumulativeCollection || d.bonus_requested).toLocaleString()}</td>
                         <td class="amount">₪${Number(d.deal_amount).toLocaleString()}</td>
-                        <td>${d.is_renewal ? 'חידוש' : 'חדש'}</td>
+                        <td class="amount">₪${Number(d.cumulativeCollection || d.bonus_requested).toLocaleString()}</td>
                         <td class="amount">₪${Number(d.bonus_requested).toLocaleString()}</td>
                     </tr>
                 `).join('')}
