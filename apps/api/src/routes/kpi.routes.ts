@@ -119,6 +119,9 @@ router.get('/accounting-report', authenticateJwt, async (req, res, next) => {
 
 function generateAccountingReportHtml(data: any) {
     const { summary, leaderboard, deals, monthLabel } = data;
+    const displayMonth = monthLabel.includes('-') && monthLabel.includes('-01')
+        ? monthLabel.slice(0, 7)
+        : monthLabel;
 
     return `
     <!DOCTYPE html>
@@ -158,7 +161,7 @@ function generateAccountingReportHtml(data: any) {
         <div class="header" style="text-align: center; border-bottom: 2px solid #00d4ff; padding-bottom: 15px;">
             <div class="company-info" style="width: 100%;">
                 <h1>לאוס מדיה ואינטראקטיב</h1>
-                <p>מחלקת מכירות - סיכום חודש ${monthLabel}</p>
+                <p>מחלקת מכירות - סיכום חודש ${displayMonth}</p>
             </div>
         </div>
 

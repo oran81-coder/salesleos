@@ -180,7 +180,7 @@ export function ManagerDashboard() {
               <>
                 <div className="dashboard-top-row">
                   <section className="card kpi-card dept-summary">
-                    <h2>סיכום מחלקתי ({month})</h2>
+                    <h2>סיכום מחלקתי ({month.slice(0, 7)})</h2>
                     {departmentSummary ? (
                       <div className="dept-stats-grid">
                         <div className="dept-stat-item">
@@ -229,7 +229,7 @@ export function ManagerDashboard() {
 
                 <div className="target-management-bar card" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>יעד מחלקתי ({month}):</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>יעד מחלקתי ({month.slice(0, 7)}):</span>
                     {isEditingTarget ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <input
